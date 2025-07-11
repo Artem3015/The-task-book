@@ -1,4 +1,3 @@
-
 body {
     font-family: 'Arial', sans-serif;
 }
@@ -9,12 +8,41 @@ body {
 
 #taskList li {
     transition: background-color 0.2s;
+    margin-bottom: 8px;
 }
 
+    #taskList li .subtask {
+        margin-left: 20px;
+    }
+
 #voiceInputBtn.bg-green-700 {
-    background-color: #15803d; /* Tailwind's green-700 */
+    background-color: #15803d;
 }
 
 #editModal {
     transition: opacity 0.3s ease-in-out;
+}
+
+#editTaskParent, #editTaskDependencies {
+    min-height: 40px;
+    overflow-y: auto;
+    max-height: 200px;
+}
+
+    #editTaskParent option, #editTaskDependencies option {
+        padding: 4px 8px;
+    }
+
+#taskFilesList {
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+    #taskFilesList div {
+        margin-bottom: 4px;
+    }
+
+.delete-file {
+    margin-left: 8px;
+    cursor: pointer;
 }
