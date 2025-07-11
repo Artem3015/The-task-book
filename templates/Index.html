@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Список задач</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-4 flex gap-4">
+        <!-- Категории -->
+        <div class="w-1/4 bg-white p-4 rounded-lg shadow">
+            <h2 class="text-lg font-bold mb-4">Категории</h2>
+            <button id="showAllBtn" class="w-full p-2 bg-blue-500 text-white rounded-lg mb-2 hover:bg-blue-600">Все</button>
+            <ul id="categoryList" class="space-y-2"></ul>
+            <div class="flex gap-2 mt-4">
+                <input id="categoryInput" type="text" class="flex-1 p-2 border rounded-lg" placeholder="Новая категория">
+                <button id="addCategoryBtn" class="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">+</button>
+            </div>
+        </div>
+
+        <!-- Список задач -->
+        <div class="w-3/4 bg-white p-4 rounded-lg shadow">
+            <h2 id="taskListTitle" class="text-lg font-bold mb-4">Мой список задач</h2>
+            <div id="taskForm" class="flex gap-2 mb-4">
+                <input id="taskInput" type="text" class="flex-1 p-2 border rounded-lg" placeholder="Новая задача">
+                <input id="taskDateTime" type="datetime-local" class="p-2 border rounded-lg">
+                <button id="voiceInputBtn" class="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">🎤</button>
+                <button id="addTaskBtn" class="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Добавить</button>
+                <button id="uploadTasksBtn" class="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Загрузить задачи</button>
+                <input id="uploadTasks" type="file" accept=".json" class="hidden">
+            </div>
+            <div class="flex gap-2 mb-4">
+                <button id="sortByDateTime" class="p-2 bg-gray-200 rounded-lg hover:bg-gray-300">Сортировать по дате и времени</button>
+                <button id="sortByDate" class="p-2 bg-gray-200 rounded-lg hover:bg-gray-300">Сортировать по дате</button>
+            </div>
+            <ul id="taskList" class="space-y-2"></ul>
+        </div>
+    </div>
+
+    <!-- Архив -->
+    <div class="container mx-auto p-4">
+        <div class="flex justify-end gap-2">
+            <button id="archiveBtn" class="p-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">Архивировать выполненные</button>
+            <button id="toggleArchiveBtn" class="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">Показать архив</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно редактирования -->
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-lg w-1/2">
+            <h2 class="text-lg font-bold mb-4">Редактировать задачу</h2>
+            <input id="editTaskText" type="text" class="w-full p-2 border rounded-lg mb-2" placeholder="Текст задачи">
+            <input id="editTaskDateTime" type="datetime-local" class="w-full p-2 border rounded-lg mb-2">
+            <select id="editTaskCategory" class="w-full p-2 border rounded-lg mb-2"></select>
+            <textarea id="editTaskDescription" class="w-full p-2 border rounded-lg mb-2" placeholder="Описание задачи"></textarea>
+            <div class="flex justify-end gap-2">
+                <button id="cancelEditBtn" class="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">Отмена</button>
+                <button id="saveEditBtn" class="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

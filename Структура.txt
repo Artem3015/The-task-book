@@ -1,0 +1,10 @@
+C:\Проекты\Секретарь\Grock\Приложение\
+├── static/
+│   ├── script.js
+│   ├── styles.css
+├── templates/
+│   ├── index.html
+├── app.py
+├── tasks.json
+├── archived_tasks.json
+├── categories.json
