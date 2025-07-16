@@ -1,31 +1,42 @@
 [
   {
-    "text": "\u0422\u0438\u043d\u044c\u043a\u043e\u0444\u0444 \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0430",
-    "category": "\u0418\u043d\u0432\u0435\u0441\u0442\u0438\u0446\u0438\u0438",
+    "text": "Тинькофф карточка",
+    "category": "РџРѕРєСѓРїРєРё",
     "datetime": "2025-07-11T18:00",
-    "description": "\u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u043f\u0435\u0440\u0435\u0432\u044b\u043f\u0443\u0449\u0435\u043d\u043d\u0443\u044e \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0443",
-    "completed": false,
+    "description": "Получить перевыпущенную карточку",
+    "completed": true,
     "id": 1,
     "parent_id": null,
-    "dependencies": []
+    "dependencies": [],
+    "reminder_time": null,
+    "chat_id": null,
+    "group": null
   },
   {
-    "text": "\u041f\u0440\u043e\u0435\u043a\u0442 \u043f\u043e 1\u0441 \u0431\u0443\u0445\u0433\u0430\u043b\u0442\u0435\u0440\u0438\u0438",
-    "category": "\u0423\u0447\u0435\u0431\u0430",
+    "text": "Проект по 1с бухгалтерии",
+    "category": "Учеба",
     "datetime": "2025-08-25T16:05",
     "description": "",
     "completed": false,
     "id": 2,
-    "parent_id": null
+    "parent_id": null,
+    "reminder_time": null,
+    "telegram_id": "362539815",
+    "chat_id": 362539815,
+    "group": null
   },
   {
-    "text": "\u0412\u044b\u0432\u0435\u0441\u0442\u0438 \u0434\u0435\u043d\u044c\u0433\u0438 \u0441 \u0422\u0438\u043d\u044c\u043a\u043e\u0444\u0444 \u0432\u043a\u043b\u0430\u0434\u0430",
-    "category": "\u0418\u043d\u0432\u0435\u0441\u0442\u0438\u0446\u0438\u0438",
+    "text": "Вывести деньги с Тинькофф вклада",
+    "category": "Инвестиции",
     "datetime": "2025-07-17T16:00",
     "description": "",
     "completed": false,
     "dependencies": [],
     "id": 3,
-    "parent_id": 1
+    "parent_id": 1,
+    "telegram_id": "362539815",
+    "reminder_time": null,
+    "chat_id": 362539815,
+    "group": null
   }
 ]

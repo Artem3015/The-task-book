@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Менеджер задач</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="bg-gray-100">
+    <header class="bg-blue-600 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Менеджер задач</h1>
+            <nav>
+                <a href="/" class="px-2 hover:underline">Задачи</a>
+                <a href="/calendar" class="px-2 hover:underline">Календарь</a>
+                <a href="/contacts" class="px-2 hover:underline">Контакты</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4">
+        <h2 class="text-xl font-semibold mb-4">Контакты</h2>
+
+        <div class="mb-4">
+            <input type="text" id="contactSearch" placeholder="Поиск контактов..." class="p-2 border rounded w-full">
+        </div>
+
+        <div class="mb-4">
+            <button id="addContactBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Добавить</button>
+            <input type="text" id="addContactUsername" placeholder="Telegram username (@username)" class="p-2 border rounded ml-2">
+        </div>
+
+        <table class="w-full border-collapse">
+            <thead>
+                <tr class="bg-gray-200">
+                    <th class="p-2 text-left" data-sort="name">Имя</th>
+                    <th class="p-2 text-left" data-sort="username">Username</th>
+                    <th class="p-2 text-left" data-sort="group">Группа</th>
+                    <th class="p-2 text-left">Действия</th>
+                </tr>
+            </thead>
+            <tbody id="contactList">
+            </tbody>
+        </table>
+
+        <div id="editContactModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center hidden">
+            <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+                <h3 class="text-lg font-semibold mb-4">Редактировать контакт</h3>
+                <div class="mb-4">
+                    <label for="editContactName" class="block text-sm font-medium text-gray-700">Имя</label>
+                    <input type="text" id="editContactName" class="p-2 border rounded w-full">
+                </div>
+                <div class="mb-4">
+                    <label for="editContactUsername" class="block text-sm font-medium text-gray-700">Username</label>
+                    <input type="text" id="editContactUsername" class="p-2 border rounded w-full" disabled>
+                </div>
+                <div class="mb-4">
+                    <label for="editContactGroup" class="block text-sm font-medium text-gray-700">Группа</label>
+                    <input type="text" id="editContactGroup" class="p-2 border rounded w-full">
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button id="cancelContactEditBtn" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Отмена</button>
+                    <button id="saveContactEditBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

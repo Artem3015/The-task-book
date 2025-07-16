@@ -19,7 +19,7 @@ body {
     background-color: #15803d;
 }
 
-#editModal {
+#editModal, #editContactModal {
     transition: opacity 0.3s ease-in-out;
 }
 
@@ -46,3 +46,27 @@ body {
     margin-left: 8px;
     cursor: pointer;
 }
+
+#editTaskTelegram {
+    padding: 8px;
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+}
+
+#contactList tr {
+    transition: background-color 0.2s;
+}
+
+    #contactList tr:hover {
+        background-color: #f3f4f6;
+    }
+
+#contactList th {
+    transition: background-color 0.2s;
+}
+
+    #contactList th:hover {
+        background-color: #e5e7eb;
+        cursor: pointer;
+    }
