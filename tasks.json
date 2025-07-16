@@ -23,7 +23,10 @@
     "reminder_time": null,
     "telegram_id": "362539815",
     "chat_id": 362539815,
-    "group": null
+    "group": null,
+    "repeat_interval": null,
+    "repeat_count": null,
+    "repeat_until": null
   },
   {
     "text": "Вывести деньги с Тинькофф вклада",

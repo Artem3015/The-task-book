@@ -3,8 +3,8 @@ import json
 import os
 import uuid
 from datetime import datetime
-from telegram_service import TelegramService
 import urllib.parse
+from telegram_service import TelegramService  
 
 app = Flask(__name__)
 
@@ -531,6 +531,29 @@ def can_complete_task(task_id):
         return jsonify({'can_complete': can_complete})
     except Exception as e:
         print(f"Ошибка при проверке возможности завершения задачи: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/users/<int:chat_id>/tasks', methods=['GET'])
+def get_user_tasks(chat_id):
+    try:
+        now = datetime.now()
+        week_later = now + timedelta(days=7)
+        
+        user_tasks = []
+        for task in tasks:
+            if not task.get('datetime') or task.get('completed'):
+                continue
+                
+            task_time = datetime.fromisoformat(task['datetime'])
+            if (task.get('chat_id') == chat_id or 
+                (task.get('group') and 
+                 any(u['chat_id'] == chat_id and u.get('group') == task['group'] for u in users))):
+                if now <= task_time <= week_later:
+                    user_tasks.append(task)
+        
+        return jsonify(user_tasks)
+    except Exception as e:
+        print(f"Ошибка при получении задач пользователя: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/tasks/process_repeating', methods=['POST'])
