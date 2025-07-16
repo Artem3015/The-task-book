@@ -38,5 +38,19 @@
     "reminder_time": null,
     "chat_id": 362539815,
     "group": null
+  },
+  {
+    "text": "Турция",
+    "datetime": "2025-08-13T05:00",
+    "reminder_time": "600",
+    "description": "Аэропорт внуково. Самолет в 5 утра",
+    "category": "Развлечения",
+    "parent_id": null,
+    "chat_id": 362539815,
+    "group": null,
+    "id": 4,
+    "completed": false,
+    "dependencies": [],
+    "files": []
   }
 ]

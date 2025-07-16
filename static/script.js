@@ -872,4 +872,50 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     }
+    const addTaskBtn = document.getElementById('addTaskBtn');
+    if (addTaskBtn) {
+        addTaskBtn.addEventListener('click', async () => {
+            const taskText = document.getElementById('taskInput').value.trim();
+            if (!taskText) {
+                alert('Введите текст задачи');
+                return;
+            }
+
+            const taskData = {
+                text: taskText,
+                datetime: document.getElementById('taskDateTime').value || null,
+                reminder_time: document.getElementById('taskReminderTime').value || null,
+                description: document.getElementById('taskDescription').value || '',
+                category: document.getElementById('taskCategory').value || (categories[0]?.name || 'Без категории'),
+                parent_id: document.getElementById('taskParent').value ? parseInt(document.getElementById('taskParent').value) : null,
+                chat_id: document.getElementById('taskTelegram').value || null,
+                group: document.getElementById('taskGroup').value || null
+            };
+
+            try {
+                const response = await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(taskData)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Ошибка при добавлении задачи');
+                }
+
+                // Очищаем поля формы
+                document.getElementById('taskInput').value = '';
+                document.getElementById('taskDateTime').value = '';
+                document.getElementById('taskReminderTime').value = '';
+                document.getElementById('taskDescription').value = '';
+
+                // Обновляем список задач
+                await renderTasks();
+            } catch (error) {
+                console.error('Ошибка при добавлении задачи:', error);
+                alert(`Не удалось добавить задачу: ${error.message}`);
+            }
+        });
+    }
 });
