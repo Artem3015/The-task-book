@@ -35,7 +35,7 @@
     "id": 3,
     "parent_id": 1,
     "telegram_id": "362539815",
-    "reminder_time": null,
+    "reminder_time": "60",
     "chat_id": 362539815,
     "group": null
   },
@@ -51,6 +51,14 @@
     "id": 4,
     "completed": false,
     "dependencies": [],
-    "files": []
+    "files": [
+      {
+        "id": "f012014e-6b23-47f4-b6c8-0e1cacb67d9a",
+        "name": "Attachments_noreply@kupibilet.ru_2025-06-20_18-38-56 (1).zip",
+        "path": "9195f7f3-e50c-4d20-aa19-90995e1b12f1.zip",
+        "size": 583150,
+        "uploaded_at": "2025-07-16T21:31:04.918332"
+      }
+    ]
   }
 ]

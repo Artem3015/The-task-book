@@ -85,6 +85,10 @@ def add_task():
         task.setdefault('chat_id', None)
         task.setdefault('reminder_time', None)
         task.setdefault('group', None)
+        task.setdefault('repeat_interval', None)  # 'day', 'week', 'month', 'quarter', 'year'
+        task.setdefault('repeat_count', None)  # Сколько раз повторять (null - бесконечно)
+        task.setdefault('repeat_until', None)  # Дата, до которой повторять
+        task.setdefault('original_task_id', None)  # Для отслеживания оригинала
         if not task or not task.get('text'):
             return jsonify({'error': 'Текст задачи обязателен'}), 400
         
@@ -128,7 +132,9 @@ def update_task(task_id):
         if not task:
             return jsonify({'error': 'Задача не найдена'}), 404
             
-        allowed_fields = ['text', 'datetime', 'reminder_time', 'description', 'category', 'completed', 'parent_id', 'dependencies', 'chat_id', 'group']
+        allowed_fields = ['text', 'datetime', 'reminder_time', 'description', 'category', 
+                 'completed', 'parent_id', 'dependencies', 'chat_id', 'group',
+                 'repeat_interval', 'repeat_count', 'repeat_until']
         for field in allowed_fields:
             if field in task_data:
                 task[field] = task_data[field]
@@ -525,6 +531,75 @@ def can_complete_task(task_id):
         return jsonify({'can_complete': can_complete})
     except Exception as e:
         print(f"Ошибка при проверке возможности завершения задачи: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/tasks/process_repeating', methods=['POST'])
+def process_repeating_tasks():
+    try:
+        global tasks
+        now = datetime.now()
+        new_tasks = []
+        
+        for task in tasks[:]:
+            if task.get('completed') and task.get('repeat_interval'):
+                # Проверяем, нужно ли создавать повторение
+                last_occurrence = datetime.fromisoformat(task['datetime']) if task['datetime'] else None
+                if not last_occurrence:
+                    continue
+                    
+                should_repeat = False
+                next_date = None
+                
+                if task['repeat_interval'] == 'day':
+                    next_date = last_occurrence + timedelta(days=1)
+                    should_repeat = next_date <= now
+                elif task['repeat_interval'] == 'week':
+                    next_date = last_occurrence + timedelta(weeks=1)
+                    should_repeat = next_date <= now
+                elif task['repeat_interval'] == 'month':
+                    next_date = last_occurrence.replace(month=last_occurrence.month + 1)
+                    should_repeat = next_date <= now
+                elif task['repeat_interval'] == 'quarter':
+                    next_date = last_occurrence.replace(month=last_occurrence.month + 3)
+                    should_repeat = next_date <= now
+                elif task['repeat_interval'] == 'year':
+                    next_date = last_occurrence.replace(year=last_occurrence.year + 1)
+                    should_repeat = next_date <= now
+                
+                # Проверяем ограничения по количеству или дате
+                if should_repeat:
+                    if task.get('repeat_until'):
+                        repeat_until = datetime.fromisoformat(task['repeat_until'])
+                        should_repeat = next_date <= repeat_until
+                    
+                    if should_repeat and task.get('repeat_count'):
+                        original_task_id = task.get('original_task_id', task['id'])
+                        completed_repeats = len([t for t in tasks if t.get('original_task_id') == original_task_id])
+                        should_repeat = completed_repeats < task['repeat_count']
+                
+                if should_repeat:
+                    # Создаем новую задачу
+                    new_task = task.copy()
+                    new_task['id'] = max([t['id'] for t in tasks], default=0) + 1
+                    new_task['completed'] = False
+                    new_task['datetime'] = next_date.isoformat()
+                    new_task['original_task_id'] = task.get('original_task_id', task['id'])
+                    
+                    # Удаляем повторяющиеся поля, чтобы не копировать их дальше
+                    if 'repeat_count' in new_task:
+                        del new_task['repeat_count']
+                    if 'repeat_until' in new_task:
+                        del new_task['repeat_until']
+                    
+                    new_tasks.append(new_task)
+        
+        if new_tasks:
+            tasks.extend(new_tasks)
+            save_data(TASKS_FILE, tasks)
+        
+        return jsonify({'success': True, 'created': len(new_tasks)})
+    except Exception as e:
+        print(f"Ошибка при обработке повторяющихся задач: {e}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':

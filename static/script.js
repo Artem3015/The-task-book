@@ -1,5 +1,6 @@
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
+let daysFilter = 7;
 if (SpeechRecognition) {
     recognition = new SpeechRecognition();
     recognition.lang = 'ru-RU';
@@ -200,8 +201,17 @@ async function renderTasks() {
 
         let filteredTasks = showArchive ? archived_tasks : tasks;
 
-        if (!showArchive && currentCategory) {
-            filteredTasks = filteredTasks.filter(task => task.category === currentCategory);
+        // Применяем фильтр по дням (только для активных задач)
+        if (!showArchive) {
+            const now = new Date();
+            const endDate = new Date();
+            endDate.setDate(now.getDate() + daysFilter);
+
+            filteredTasks = filteredTasks.filter(task => {
+                if (!task.datetime) return true; // Задачи без даты показываем всегда
+                const taskDate = new Date(task.datetime);
+                return taskDate <= endDate;
+            });
         }
 
         filteredTasks.sort((a, b) => {
@@ -229,42 +239,64 @@ async function renderTasks() {
             const category = categories.find(cat => cat.name === task.category);
             const taskColor = category && category.color ? `${category.color}33` : '#f3f4f6';
 
-            return `
-    <li class="flex items-center justify-between p-3 rounded-lg shadow ${task.completed ? 'bg-gray-200' : ''}" style="background-color: ${taskColor}; margin-left: ${level * 20}px">
-                    <div class="flex items-center gap-2">
-                        <input type="checkbox" ${task.completed ? 'checked' : ''} class="toggle-task" data-id="${task.id}" ${showArchive ? 'disabled' : ''}>
-                        <div class="flex-1 ${showArchive ? '' : 'cursor-pointer open-task'}" data-id="${task.id}">
-                            <span class="${task.completed ? 'line-through text-gray-500' : ''}">${task.text}</span>
-                            <span class="text-sm text-gray-400">(${task.category}${formattedDate ? ', ' + formattedDate : ''}${task.reminder_time ? ', напоминание за ' + task.reminder_time + ' мин' : ''}${groupDisplay ? ', ' + groupDisplay : ''})</span>
-                            ${task.description ? `<p class="text-sm text-gray-600">${task.description}</p>` : ''}
-                            ${dependencies ? `<p class="text-sm text-gray-600">Зависит от: ${dependencies}</p>` : ''}
-                            ${contactDisplay ? `<p class="text-sm text-gray-600">Контакт: ${contactDisplay}</p>` : ''}
-                            ${task.files && task.files.length > 0 ? `
-                                <div class="mt-2">
-                                    <p class="text-sm font-medium">Файлы:</p>
-                                    <div class="flex flex-wrap gap-2 mt-1">
-                                        ${task.files.map(file => `
-                                            <a href="/api/tasks/${task.id}/files/${file.id}" 
-                                               target="_blank" 
-                                               class="text-blue-500 hover:underline text-sm">
-                                                ${file.name}
-                                            </a>
-                                        `).join('')}
-                                    </div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                    <button class="delete-task text-red-500 hover:text-red-700" data-id="${task.id}">Удалить</button>
-                    ${subtasks.length > 0 ? `
-                        <ul class="subtask-list ml-5 space-y-2">
-                            ${subtasks.map(subtask => renderTask(subtask, level + 1)).join('')}
-                        </ul>
-                    ` : ''
+            // Добавляем информацию о повторении
+            let repeatInfo = '';
+            if (task.repeat_interval) {
+                const intervals = {
+                    'day': 'Ежедневно',
+                    'week': 'Еженедельно',
+                    'month': 'Ежемесячно',
+                    'quarter': 'Ежеквартально',
+                    'year': 'Ежегодно'
+                };
+                repeatInfo = `<span class="text-sm text-blue-600">${intervals[task.repeat_interval]}</span>`;
+
+                if (task.repeat_count) {
+                    repeatInfo += `, <span class="text-sm text-blue-600">${task.repeat_count} повторений</span>`;
                 }
-                </li>
+                if (task.repeat_until) {
+                    repeatInfo += `, <span class="text-sm text-blue-600">до ${new Date(task.repeat_until).toLocaleDateString('ru-RU')}</span>`;
+                }
+            }
+
+            return `
+        <li class="flex items-center justify-between p-3 rounded-lg shadow ${task.completed ? 'bg-gray-200' : ''} ${task.repeat_interval ? 'repeating-task' : ''}" 
+            style="background-color: ${taskColor}; margin-left: ${level * 20}px">
+            <div class="flex items-center gap-2">
+                <input type="checkbox" ${task.completed ? 'checked' : ''} class="toggle-task" data-id="${task.id}" ${showArchive ? 'disabled' : ''}>
+                <div class="flex-1 ${showArchive ? '' : 'cursor-pointer open-task'}" data-id="${task.id}">
+                    <span class="${task.completed ? 'line-through text-gray-500' : ''}">${task.text}</span>
+                    <span class="text-sm text-gray-400">(${task.category}${formattedDate ? ', ' + formattedDate : ''}${task.reminder_time ? ', напоминание за ' + task.reminder_time + ' мин' : ''}${groupDisplay ? ', ' + groupDisplay : ''})</span>
+                    ${repeatInfo ? `<div class="mt-1">${repeatInfo}</div>` : ''}
+                    ${task.description ? `<p class="text-sm text-gray-600">${task.description}</p>` : ''}
+                    ${dependencies ? `<p class="text-sm text-gray-600">Зависит от: ${dependencies}</p>` : ''}
+                    ${contactDisplay ? `<p class="text-sm text-gray-600">Контакт: ${contactDisplay}</p>` : ''}
+                    ${task.files && task.files.length > 0 ? `
+                        <div class="mt-2">
+                            <p class="text-sm font-medium">Файлы:</p>
+                            <div class="flex flex-wrap gap-2 mt-1">
+                                ${task.files.map(file => `
+                                    <a href="/api/tasks/${task.id}/files/${file.id}" 
+                                       target="_blank" 
+                                       class="text-blue-500 hover:underline text-sm">
+                                        ${file.name}
+                                    </a>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+            <button class="delete-task text-red-500 hover:text-red-700" data-id="${task.id}">Удалить</button>
+            ${subtasks.length > 0 ? `
+                <ul class="subtask-list ml-5 space-y-2">
+                    ${subtasks.map(subtask => renderTask(subtask, level + 1)).join('')}
+                </ul>
+            ` : ''}
+        </li>
     `;
         };
+
 
         taskList.innerHTML = filteredTasks.map(task => renderTask(task)).join('');
 
@@ -345,6 +377,48 @@ async function renderTasks() {
         alert('Не удалось загрузить задачи. Проверьте подключение к серверу.');
     }
 }
+
+async function checkRepeatingTasks() {
+    try {
+        const response = await fetch('/api/tasks/process_repeating', {
+            method: 'POST'
+        });
+        if (!response.ok) throw new Error('Ошибка обработки повторяющихся задач');
+        const result = await response.json();
+        if (result.created > 0) {
+            await renderTasks();
+        }
+    } catch (error) {
+        console.error('Ошибка при проверке повторяющихся задач:', error);
+    }
+}
+
+// Вызываем при загрузке и периодически
+document.addEventListener('DOMContentLoaded', async () => {
+    await checkRepeatingTasks();
+    const daysFilterInput = document.getElementById('daysFilter');
+    const applyDaysFilterBtn = document.getElementById('applyDaysFilter');
+
+    if (daysFilterInput && applyDaysFilterBtn) {
+        // Применяем фильтр при нажатии кнопки
+        applyDaysFilterBtn.addEventListener('click', () => {
+            const value = parseInt(daysFilterInput.value);
+            if (!isNaN(value) && value > 0) {
+                daysFilter = value;
+                renderTasks();
+            }
+        });
+
+        // Применяем фильтр при нажатии Enter
+        daysFilterInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                applyDaysFilterBtn.click();
+            }
+        });
+    }
+    setInterval(checkRepeatingTasks, 3600000); // Проверяем каждый час
+});
+
 
 async function updateTaskFilesList(taskId) {
     try {
@@ -521,6 +595,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             contactSearchQuery = contactSearch.value.trim();
             renderContacts();
         });
+
+        const savedFilter = localStorage.getItem('daysFilter');
+        if (savedFilter) {
+            daysFilter = parseInt(savedFilter);
+            if (daysFilterInput) {
+                daysFilterInput.value = daysFilter;
+            }
+        }
 
         document.querySelectorAll('#contactList th[data-sort]').forEach(th => {
             th.addEventListener('click', () => {
@@ -718,7 +800,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         description: document.getElementById('editTaskDescription').value,
                         parent_id: parentId,
                         chat_id: chatId,
-                        group: group
+                        group: group,
+                        repeat_interval: document.getElementById('editTaskRepeatInterval').value || null,
+                        repeat_count: document.getElementById('editTaskRepeatCount').value ?
+                            parseInt(document.getElementById('editTaskRepeatCount').value) : null,
+                        repeat_until: document.getElementById('editTaskRepeatUntil').value || null
                     };
 
                     try {
@@ -741,6 +827,42 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             });
         }
+
+        const repeatTaskBtn = document.getElementById('repeatTaskBtn');
+        if (repeatTaskBtn) {
+            repeatTaskBtn.addEventListener('click', async () => {
+                if (currentEditId) {
+                    const repeatInterval = document.getElementById('editTaskRepeatInterval').value;
+                    if (!repeatInterval) {
+                        alert('Выберите интервал повторения');
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch(`/api/tasks/${currentEditId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                repeat_interval: repeatInterval,
+                                repeat_count: document.getElementById('editTaskRepeatCount').value ?
+                                    parseInt(document.getElementById('editTaskRepeatCount').value) : null,
+                                repeat_until: document.getElementById('editTaskRepeatUntil').value || null
+                            })
+                        });
+
+                        if (!response.ok) throw new Error('Ошибка при сохранении повторения');
+
+                        alert('Повторение задачи успешно настроено');
+                        document.getElementById('editModal').classList.add('hidden');
+                        await renderTasks();
+                    } catch (error) {
+                        console.error('Ошибка при настройке повторения:', error);
+                        alert('Не удалось настроить повторение задачи');
+                    }
+                }
+            });
+        }
+
 
         const cancelCategoryEditBtn = document.getElementById('cancelCategoryEditBtn');
         if (cancelCategoryEditBtn) {
@@ -889,7 +1011,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 category: document.getElementById('taskCategory').value || (categories[0]?.name || 'Без категории'),
                 parent_id: document.getElementById('taskParent').value ? parseInt(document.getElementById('taskParent').value) : null,
                 chat_id: document.getElementById('taskTelegram').value || null,
-                group: document.getElementById('taskGroup').value || null
+                group: document.getElementById('taskGroup').value || null,
+                repeat_interval: document.getElementById('taskRepeatInterval').value || null,
+                repeat_count: document.getElementById('taskRepeatCount').value ?
+                    parseInt(document.getElementById('taskRepeatCount').value) : null,
+                repeat_until: document.getElementById('taskRepeatUntil').value || null
             };
 
             try {
@@ -909,6 +1035,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('taskDateTime').value = '';
                 document.getElementById('taskReminderTime').value = '';
                 document.getElementById('taskDescription').value = '';
+                document.getElementById('taskRepeatInterval').value = '';
+                document.getElementById('taskRepeatCount').value = '';
+                document.getElementById('taskRepeatUntil').value = '';
 
                 // Обновляем список задач
                 await renderTasks();
@@ -918,4 +1047,5 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+
 });
