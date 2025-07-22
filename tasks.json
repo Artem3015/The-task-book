@@ -1,18 +1,5 @@
 [
   {
-    "text": "Тинькофф карточка",
-    "category": "РџРѕРєСѓРїРєРё",
-    "datetime": "2025-07-11T18:00",
-    "description": "Получить перевыпущенную карточку",
-    "completed": true,
-    "id": 1,
-    "parent_id": null,
-    "dependencies": [],
-    "reminder_time": null,
-    "chat_id": null,
-    "group": null
-  },
-  {
     "text": "Проект по 1с бухгалтерии",
     "category": "Учеба",
     "datetime": "2025-08-25T16:05",
@@ -27,20 +14,6 @@
     "repeat_interval": null,
     "repeat_count": null,
     "repeat_until": null
-  },
-  {
-    "text": "Вывести деньги с Тинькофф вклада",
-    "category": "Инвестиции",
-    "datetime": "2025-07-17T16:00",
-    "description": "",
-    "completed": false,
-    "dependencies": [],
-    "id": 3,
-    "parent_id": 1,
-    "telegram_id": "362539815",
-    "reminder_time": "60",
-    "chat_id": 362539815,
-    "group": null
   },
   {
     "text": "Турция",
@@ -63,5 +36,62 @@
         "uploaded_at": "2025-07-16T21:31:04.918332"
       }
     ]
+  },
+  {
+    "text": "Андрей Бердин",
+    "datetime": "2025-09-28T12:00",
+    "reminder_time": "2880",
+    "description": "",
+    "category": "Дни рождения",
+    "parent_id": null,
+    "chat_id": 362539815,
+    "group": null,
+    "repeat_interval": "year",
+    "repeat_count": null,
+    "repeat_until": null,
+    "original_task_id": null,
+    "id": 6,
+    "completed": false,
+    "dependencies": [],
+    "files": []
+  },
+  {
+    "text": "Елена Бердина",
+    "datetime": "2025-11-21T12:00",
+    "reminder_time": "2880",
+    "description": "",
+    "category": "Дни рождения",
+    "parent_id": null,
+    "chat_id": 362539815,
+    "group": null,
+    "repeat_interval": "year",
+    "repeat_count": null,
+    "repeat_until": null,
+    "original_task_id": null,
+    "id": 7,
+    "completed": false,
+    "dependencies": [],
+    "files": []
+  },
+  {
+    "text": "Придумать куда инвестировать 610 000",
+    "datetime": "2025-07-23T15:00",
+    "reminder_time": null,
+    "description": "Деньги вернувшие из тинькофф вклада",
+    "category": "Инвестиции",
+    "parent_id": null,
+    "chat_ids": [
+      362539815
+    ],
+    "group": null,
+    "repeat_interval": null,
+    "repeat_count": null,
+    "repeat_until": null,
+    "chat_id": 362539815,
+    "original_task_id": null,
+    "id": 8,
+    "completed": false,
+    "dependencies": [],
+    "files": []
   }
 ]

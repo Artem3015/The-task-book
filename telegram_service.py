@@ -63,18 +63,22 @@ class TelegramService:
         """Форматирует задачу для отправки в сообщении."""
         message = f"*Задача:* {task['text']}\n"
         if task.get('description'):
-            message += f"*Описание:* {task['description']}\n"
+            message += f"\n*📝 Описание:*\n{task['description']}\n"
         if task.get('category'):
-            message += f"*Категория:* {task['category']}\n"
+            message += f"\n*🏷️ Категория:* {task['category']}\n"
         if task.get('datetime'):
             task_time = datetime.fromisoformat(task['datetime'])
-            message += f"*Время:* {task_time.strftime('%d.%m.%Y %H:%M')}\n"
+            message += f"\n*⏰ Время выполнения:* {task_time.strftime('%d.%m.%Y %H:%M')}\n"
         if task.get('reminder_time'):
-            message += f"*Напоминание за:* {task['reminder_time']} мин.\n"
+            message += f"\n*🔔 Напоминание за:* {task['reminder_time']} мин.\n"
         if task.get('group'):
-            message += f"*Группа:* {task['group']}\n"
+            message += f"\n*👥 Группа:* {task['group']}\n"
+
+        # Добавляем информацию о файлах
         if task.get('files'):
-            message += f"*Вложения:* {len(task['files'])} файлов\n"
+            message += f"\n*📎 Вложения:* {len(task['files'])} файлов\n"
+
+        # Добавляем информацию о повторении
         if task.get('repeat_interval'):
             intervals = {
                 'day': 'Ежедневно',
@@ -83,11 +87,12 @@ class TelegramService:
                 'quarter': 'Ежеквартально',
                 'year': 'Ежегодно'
             }
-            message += f"*Повторение:* {intervals[task['repeat_interval']]}\n"
+            message += f"\n*🔄 Повторение:* {intervals[task['repeat_interval']]}\n"  # Исправлено здесь
             if task.get('repeat_count'):
-                message += f"*Количество повторений:* {task['repeat_count']}\n"
+                message += f"*🔢 Количество повторений:* {task['repeat_count']}\n"
             if task.get('repeat_until'):
-                message += f"*Повторять до:* {task['repeat_until']}\n"
+                message += f"*⏳ Повторять до:* {task['repeat_until']}\n"
+
         return message
 
     def check_reminders(self):
@@ -96,45 +101,56 @@ class TelegramService:
             try:
                 with open(self.tasks_file, 'r', encoding='utf-8') as f:
                     tasks = json.load(f)
-                
+        
                 current_time = datetime.now()
-                
+        
                 for task in tasks:
                     task_id = task.get('id')
-                    if (task.get('datetime') and task.get('chat_id') and not task.get('completed') 
+                    # Получаем всех получателей - либо из chat_ids, либо из chat_id
+                    recipients = []
+                    if task.get('chat_ids'):
+                        recipients.extend(task['chat_ids'])
+                    elif task.get('chat_id'):
+                        recipients.append(task['chat_id'])
+                
+                    if (task.get('datetime') and recipients and not task.get('completed') 
                         and task.get('reminder_time') is not None and task_id not in self.sent_reminders):
+                
                         task_time = datetime.fromisoformat(task['datetime'])
                         reminder_minutes = int(task['reminder_time'])
                         reminder_time = task_time - timedelta(minutes=reminder_minutes)
-                        
+                
                         if current_time >= reminder_time and current_time <= reminder_time + timedelta(minutes=1):
-                            # Отправляем основное сообщение с информацией о задаче
-                            message = "*Напоминание о задаче:*\n\n"
+                            # Формируем сообщение с описанием
+                            message = "*🔔 Напоминание о задаче:*\n\n"
                             message += self._format_task_message(task)
-                            self.send_message(task['chat_id'], message)
-                            
-                            # Если есть файлы, отправляем их
-                            if task.get('files'):
-                                for file_info in task['files']:
-                                    try:
-                                        file_path = os.path.join('task_files', file_info['path'])
-                                        if os.path.exists(file_path):
-                                            with open(file_path, 'rb') as file:
-                                                url = f'{self.base_url}/sendDocument'
-                                                files = {'document': (file_info['name'], file)}
-                                                data = {'chat_id': task['chat_id']}
-                                                response = requests.post(url, files=files, data=data)
-                                                if response.status_code != 200:
-                                                    print(f"Ошибка отправки файла: {response.text}")
-                                    except Exception as e:
-                                        print(f"Ошибка при отправке файла {file_info['name']}: {e}")
-                            
+                    
+                            # Отправляем каждому получателю
+                            for chat_id in recipients:
+                                self.send_message(chat_id, message)
+                        
+                                # Если есть файлы, отправляем их
+                                if task.get('files'):
+                                    for file_info in task['files']:
+                                        try:
+                                            file_path = os.path.join('task_files', file_info['path'])
+                                            if os.path.exists(file_path):
+                                                with open(file_path, 'rb') as file:
+                                                    url = f'{self.base_url}/sendDocument'
+                                                    files = {'document': (file_info['name'], file)}
+                                                    data = {'chat_id': chat_id}
+                                                    response = requests.post(url, files=files, data=data)
+                                                    if response.status_code != 200:
+                                                        print(f"Ошибка отправки файла: {response.text}")
+                                        except Exception as e:
+                                            print(f"Ошибка при отправке файла {file_info['name']}: {e}")
+                    
                             self.sent_reminders.add(task_id)
-                            print(f"Sent reminder for task {task_id}")
-            
+                            print(f"Sent reminders for task {task_id} to {len(recipients)} recipients")
+    
             except Exception as e:
                 print(f"Ошибка при проверке напоминаний: {e}")
-            
+    
             time.sleep(60)
 
     def _load_config(self):

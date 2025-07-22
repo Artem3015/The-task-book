@@ -1,0 +1,21 @@
+C:\Проекты\Секретарь\Grock\Приложение\
+├── static/
+│   ├── js/
+│   │   ├── modules/
+│   │   │   ├── speech-recognition.js
+│   │   │   ├── tasks.js
+│   │   │   ├── categories.js
+│   │   │   ├── contacts.js
+│   │   │   ├── calendar.js
+│   │   │   ├── subtasks.js
+│   │   │   ├── files.js
+│   │   │   ├── ui.js
+│   │   │   └── utils.js
+│   │   ├── main.js
+│   ├── styles.css
+├── templates/
+│   ├── index.html
+├── app.py
+├── tasks.json
+├── archived_tasks.json
+├── categories.json

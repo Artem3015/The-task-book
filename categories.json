@@ -1,7 +1,7 @@
 [
   {
     "name": "Работа",
-    "color": "#10b981"
+    "color": "#22a076"
   },
   {
     "name": "Развлечения",
@@ -9,14 +9,14 @@
   },
   {
     "name": "Учеба",
-    "color": null
+    "color": "#fa0000"
+  },
+  {
+    "name": "Дни рождения",
+    "color": "#00bfff"
   },
   {
     "name": "Инвестиции",
-    "color": null
-  },
-  {
-    "name": "Праздники",
-    "color": null
+    "color": "#fbff00"
   }
 ]

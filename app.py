@@ -1,8 +1,8 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, url_for
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import urllib.parse
 from telegram_service import TelegramService  
 
@@ -29,8 +29,13 @@ def load_data(file_path, default):
     try:
         if os.path.exists(file_path):
             with open(file_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                print(f"Загружено из {file_path}: {data}")  # Отладка: вывод содержимого файла
+                if file_path == TASKS_FILE:
+                    print(f"Задачи без даты в {file_path}: {[t for t in data if not t.get('datetime')]}")  # Отладка
+                return data
         else:
+            print(f"Файл {file_path} не существует, создаём с данными по умолчанию: {default}")  # Отладка
             save_data(file_path, default)
             return default
     except Exception as e:
@@ -74,23 +79,45 @@ def calendar():
 def contacts():
     return render_template('contacts.html')
 
+@app.route('/static/script.js')
+def redirect_script_js():
+    return redirect(url_for('static', filename='js/main.js'), code=301)
+
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
+    print('Все задачи:', tasks)  # Отладка: вывод всех задач
+    print('Задачи без даты:', [t for t in tasks if not t.get('datetime')])  # Отладка
+    print('Архивные задачи:', archived_tasks)  # Отладка
     return jsonify({'tasks': tasks, 'archived_tasks': archived_tasks})
 
 @app.route('/api/tasks', methods=['POST'])
 def add_task():
     try:
         task = request.json
-        task.setdefault('chat_id', None)
+        
+        # Конвертация chat_id в chat_ids для обратной совместимости
+        if 'chat_id' in task:
+            if task['chat_id']:
+                task['chat_ids'] = [task['chat_id']]
+            del task['chat_id']
+        
+        # Установка значений по умолчанию
+        task.setdefault('chat_ids', [])
         task.setdefault('reminder_time', None)
         task.setdefault('group', None)
-        task.setdefault('repeat_interval', None)  # 'day', 'week', 'month', 'quarter', 'year'
-        task.setdefault('repeat_count', None)  # Сколько раз повторять (null - бесконечно)
-        task.setdefault('repeat_until', None)  # Дата, до которой повторять
-        task.setdefault('original_task_id', None)  # Для отслеживания оригинала
+        task.setdefault('repeat_interval', None)
+        task.setdefault('repeat_count', None)
+        task.setdefault('repeat_until', None)
+        task.setdefault('original_task_id', None)
+        
         if not task or not task.get('text'):
             return jsonify({'error': 'Текст задачи обязателен'}), 400
+        
+        # Проверка chat_ids
+        if task.get('chat_ids'):
+            for cid in task['chat_ids']:
+                if not any(u['chat_id'] == cid for u in users):
+                    return jsonify({'error': f'Контакт с chat_id {cid} не найден'}), 400
         
         task['id'] = max([t['id'] for t in tasks], default=0) + 1
         task.setdefault('completed', False)
@@ -101,15 +128,14 @@ def add_task():
         task.setdefault('dependencies', [])
         task.setdefault('files', [])
         
-        if task['parent_id'] and not any(t['id'] == task['parent_id'] for t in tasks):
-            return jsonify({'error': f'Родительская задача с ID {task["parent_id"]} не найдена'}), 400
-            
+        if task.get('parent_id'):
+            parent_exists = any(t['id'] == task['parent_id'] for t in tasks)
+            if not parent_exists:
+                return jsonify({'error': f'Родительская задача с ID {task["parent_id"]} не найдена'}), 400
+
         for dep_id in task['dependencies']:
             if not any(t['id'] == dep_id for t in tasks):
                 return jsonify({'error': f'Зависимость с ID {dep_id} не найдена'}), 400
-        
-        if task.get('chat_id') and not any(u['chat_id'] == task['chat_id'] for u in users):
-            return jsonify({'error': f'Контакт с chat_id {task["chat_id"]} не найден'}), 400
         
         if task.get('group') and not any(u['group'] == task['group'] for u in users):
             return jsonify({'error': f'Группа {task["group"]} не найдена в контактах'}), 400
@@ -128,36 +154,79 @@ def add_task():
 def update_task(task_id):
     try:
         task_data = request.json
-        task = next((t for t in tasks if t['id'] == task_id), None)
+        tasks_list = list(tasks) if isinstance(tasks, tuple) else tasks
+        
+        task = next((t for t in tasks_list if t['id'] == task_id), None)
         if not task:
             return jsonify({'error': 'Задача не найдена'}), 404
+
+        # Создаем копию задачи для изменений
+        task_copy = dict(task)
+        
+        # Обработка chat_id/chat_ids
+        if 'chat_id' in task_data:
+            task_data['chat_ids'] = [int(task_data['chat_id'])] if task_data['chat_id'] else []
+            del task_data['chat_id']
+        elif 'chat_ids' in task_data:
+            task_data['chat_ids'] = [int(cid) for cid in task_data['chat_ids'] if cid]
             
         allowed_fields = ['text', 'datetime', 'reminder_time', 'description', 'category', 
-                 'completed', 'parent_id', 'dependencies', 'chat_id', 'group',
+                 'completed', 'parent_id', 'dependencies', 'chat_ids', 'group',
                  'repeat_interval', 'repeat_count', 'repeat_until']
+        
+        # Обновляем только разрешенные поля
         for field in allowed_fields:
             if field in task_data:
-                task[field] = task_data[field]
+                if field == 'chat_ids':
+                    # Проверяем каждый chat_id в списке
+                    for cid in task_data['chat_ids']:
+                        if not any(u['chat_id'] == cid for u in users):
+                            return jsonify({
+                                'error': f'Контакт с chat_id {cid} не найден',
+                                'available_users': [u['chat_id'] for u in users]
+                            }), 400
+                elif field == 'group' and task_data['group']:
+                    if not any(u['group'] == task_data['group'] for u in users):
+                        return jsonify({
+                            'error': f'Группа {task_data["group"]} не найдена',
+                            'available_groups': list(set(u['group'] for u in users if u['group']))
+                        }), 400
+                elif field == 'category' and task_data['category']:
+                    if not any(cat['name'] == task_data['category'] for cat in categories):
+                        return jsonify({
+                            'error': f'Категория {task_data["category"]} не найдена',
+                            'available_categories': [cat['name'] for cat in categories]
+                        }), 400
+                elif field == 'dependencies':
+                    for dep_id in task_data['dependencies']:
+                        if not any(t['id'] == dep_id for t in tasks_list):
+                            return jsonify({
+                                'error': f'Зависимость с ID {dep_id} не найдена',
+                                'available_tasks': [t['id'] for t in tasks_list]
+                            }), 400
+                
+                task_copy[field] = task_data[field]
         
-        if 'dependencies' in task_data:
-            for dep_id in task_data['dependencies']:
-                if not any(t['id'] == dep_id for t in tasks):
-                    return jsonify({'error': f'Зависимость с ID {dep_id} не найдена'}), 400
-        
-        if 'chat_id' in task_data and task_data['chat_id'] and not any(u['chat_id'] == task_data['chat_id'] for u in users):
-            return jsonify({'error': f'Контакт с chat_id {task_data["chat_id"]} не найден'}), 400
-        
-        if 'group' in task_data and task_data['group'] and not any(u['group'] == task_data['group'] for u in users):
-            return jsonify({'error': f'Группа {task_data["group"]} не найдена в контактах'}), 400
-        
-        if 'category' in task_data and task_data['category'] and not any(cat['name'] == task_data['category'] for cat in categories):
-            return jsonify({'error': f'Категория {task_data["category"]} не найдена'}), 400
-        
-        save_data(TASKS_FILE, tasks)
-        return jsonify(task)
+        # Обновляем оригинальную задачу в списке
+        for i, t in enumerate(tasks_list):
+            if t['id'] == task_id:
+                tasks_list[i] = task_copy
+                break
+                
+        save_data(TASKS_FILE, tasks_list)
+        return jsonify(task_copy)
+    except ValueError as e:
+        print(f"Ошибка преобразования типов: {e}")
+        return jsonify({
+            'error': 'Некорректный формат данных',
+            'details': str(e)
+        }), 400
     except Exception as e:
         print(f"Ошибка при обновлении задачи: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'error': 'Внутренняя ошибка сервера',
+            'details': str(e)
+        }), 500
 
 @app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
@@ -225,7 +294,6 @@ def add_category():
         print(f"Получен запрос на добавление категории: {category}")
         if not category.get('name'):
             return jsonify({'error': 'Название категории обязательно'}), 400
-        # Цвет опционален, сохраняем как есть или null
         color = category.get('color') if category.get('color') else None
         if color and (not color.startswith('#') or len(color) not in [4, 7]):
             return jsonify({'error': 'Неверный формат цвета (должен быть HEX, например #FFF или #FFFFFF)'}), 400
@@ -248,7 +316,6 @@ def add_category():
 def update_category(category):
     try:
         global categories, tasks
-        # Декодируем категорию из URL
         category = urllib.parse.unquote(category)
         category_data = request.json
         print(f"Получен запрос на обновление категории: {category_data}")
@@ -268,7 +335,6 @@ def update_category(category):
         category_obj['name'] = category_data['name']
         category_obj['color'] = color
         
-        # Обновляем категорию во всех задачах
         for task in tasks:
             if task['category'] == old_name:
                 task['category'] = category_data['name']
@@ -284,7 +350,6 @@ def update_category(category):
 def delete_category(category):
     try:
         global categories
-        # Декодируем категорию из URL
         category = urllib.parse.unquote(category)
         if any(task['category'] == category for task in tasks):
             return jsonify({'error': 'Нельзя удалить категорию, связанную с задачами'}), 400
@@ -390,6 +455,30 @@ def delete_user(chat_id):
         print(f"Ошибка при удалении пользователя: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/tasks/stats')
+def tasks_stats():
+    now = datetime.now()
+    total = len(tasks)
+    completed = len([t for t in tasks if t.get('completed')])
+    overdue = len([t for t in tasks if t.get('datetime') and 
+                  datetime.fromisoformat(t['datetime']) < now and 
+                  not t.get('completed')])
+    
+    return jsonify({
+        "total": total,
+        "completed": completed,
+        "overdue": overdue
+    })
+
+@app.route('/api/tags')
+def get_tags():
+    return jsonify([])
+
+@app.route('/api/tasks/<int:task_id>/subtasks')
+def get_subtasks(task_id):
+    subtasks = [t for t in tasks if t.get('parent_id') == task_id]
+    return jsonify(subtasks)
+
 @app.route('/api/tasks/upload', methods=['POST'])
 def upload_tasks():
     try:
@@ -412,13 +501,10 @@ def upload_tasks():
                 'parent_id': t.get('parent_id', None),
                 'dependencies': t.get('dependencies', []),
                 'files': t.get('files', []),
-                'chat_id': t.get('chat_id', None),
+                'chat_ids': t.get('chat_ids', []),
                 'group': t.get('group', None) if any(u['group'] == t.get('group') for u in users) else None
             } for t in uploaded_tasks
         ]
-        for task in tasks:
-            if task.get('chat_id') and not any(u['chat_id'] == task['chat_id'] for u in users):
-                task['chat_id'] = None
         save_data(TASKS_FILE, tasks)
         return jsonify({'success': True})
     except Exception as e:
@@ -541,20 +627,44 @@ def get_user_tasks(chat_id):
         
         user_tasks = []
         for task in tasks:
-            if not task.get('datetime') or task.get('completed'):
+            # Пропускаем только завершенные задачи
+            if task.get('completed'):
                 continue
                 
-            task_time = datetime.fromisoformat(task['datetime'])
-            if (task.get('chat_id') == chat_id or 
-                (task.get('group') and 
-                 any(u['chat_id'] == chat_id and u.get('group') == task['group'] for u in users))):
-                if now <= task_time <= week_later:
+            # Проверяем принадлежность задачи пользователю
+            is_user_task = (chat_id in task.get('chat_ids', []) or 
+                          (task.get('group') and 
+                           any(u['chat_id'] == chat_id and u.get('group') == task['group'] for u in users)))
+            
+            if not is_user_task:
+                continue
+                
+            # Для задач с датой проверяем период
+            if task.get('datetime'):
+                try:
+                    task_time = datetime.fromisoformat(task['datetime'])
+                    if now <= task_time <= week_later:
+                        user_tasks.append(task)
+                except ValueError:
+                    # Если дата в неправильном формате, добавляем без проверки
                     user_tasks.append(task)
+            else:
+                # Задачи без даты добавляем всегда
+                user_tasks.append(task)
+        
+        # Сортируем задачи: сначала с ближайшими датами, потом без дат
+        user_tasks.sort(key=lambda x: x.get('datetime') or '9999-12-31')
         
         return jsonify(user_tasks)
     except Exception as e:
         print(f"Ошибка при получении задач пользователя: {e}")
         return jsonify({'error': str(e)}), 500
+
+@app.after_request
+def add_header(response):
+    if request.path.startswith('/static/js/'):
+        response.headers['Content-Type'] = 'application/javascript'
+    return response
 
 @app.route('/api/tasks/process_repeating', methods=['POST'])
 def process_repeating_tasks():
@@ -565,14 +675,12 @@ def process_repeating_tasks():
         
         for task in tasks[:]:
             if task.get('completed') and task.get('repeat_interval'):
-                # Проверяем, нужно ли создавать повторение
                 last_occurrence = datetime.fromisoformat(task['datetime']) if task['datetime'] else None
                 if not last_occurrence:
                     continue
                     
                 should_repeat = False
                 next_date = None
-                
                 if task['repeat_interval'] == 'day':
                     next_date = last_occurrence + timedelta(days=1)
                     should_repeat = next_date <= now
@@ -580,16 +688,15 @@ def process_repeating_tasks():
                     next_date = last_occurrence + timedelta(weeks=1)
                     should_repeat = next_date <= now
                 elif task['repeat_interval'] == 'month':
-                    next_date = last_occurrence.replace(month=last_occurrence.month + 1)
+                    next_date = last_occurrence.replace(month=last_occurrence.month % 12 + 1, year=last_occurrence.year + (last_occurrence.month // 12))
                     should_repeat = next_date <= now
                 elif task['repeat_interval'] == 'quarter':
-                    next_date = last_occurrence.replace(month=last_occurrence.month + 3)
+                    next_date = last_occurrence.replace(month=last_occurrence.month % 12 + 3, year=last_occurrence.year + ((last_occurrence.month + 2) // 12))
                     should_repeat = next_date <= now
                 elif task['repeat_interval'] == 'year':
                     next_date = last_occurrence.replace(year=last_occurrence.year + 1)
                     should_repeat = next_date <= now
                 
-                # Проверяем ограничения по количеству или дате
                 if should_repeat:
                     if task.get('repeat_until'):
                         repeat_until = datetime.fromisoformat(task['repeat_until'])
@@ -601,14 +708,12 @@ def process_repeating_tasks():
                         should_repeat = completed_repeats < task['repeat_count']
                 
                 if should_repeat:
-                    # Создаем новую задачу
                     new_task = task.copy()
                     new_task['id'] = max([t['id'] for t in tasks], default=0) + 1
                     new_task['completed'] = False
                     new_task['datetime'] = next_date.isoformat()
                     new_task['original_task_id'] = task.get('original_task_id', task['id'])
                     
-                    # Удаляем повторяющиеся поля, чтобы не копировать их дальше
                     if 'repeat_count' in new_task:
                         del new_task['repeat_count']
                     if 'repeat_until' in new_task:

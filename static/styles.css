@@ -23,6 +23,26 @@ body {
     transition: opacity 0.3s ease-in-out;
 }
 
+#editModal {
+    overflow: hidden; /* Запрещаем скролл страницы под модалкой */
+}
+
+    #editModal > div { /* Внутренний контейнер */
+        max-height: 90vh;
+        overflow-y: auto; /* Разрешаем скролл внутри модалки */
+        display: flex;
+        flex-direction: column;
+    }
+
+    #editModal .flex.justify-end { /* Блок с кнопками внизу */
+        margin-top: auto; /* Прижимаем кнопки к низу */
+        padding-top: 1rem;
+        position: sticky;
+        bottom: 0;
+        background: white;
+        z-index: 10;
+    }
+
 #editTaskParent, #editTaskDependencies {
     min-height: 40px;
     overflow-y: auto;
@@ -86,7 +106,7 @@ select[multiple] {
             color: white;
         }
 
-/* Р”РѕР±Р°РІСЊС‚Рµ РІ СЃРµРєС†РёСЋ СЃС‚РёР»РµР№ */
+/* Добавьте в секцию стилей */
 #editContactsSearch {
     width: 100%;
     padding: 8px 12px;
