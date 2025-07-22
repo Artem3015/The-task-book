@@ -87,7 +87,7 @@ class TelegramService:
                 'quarter': 'Ежеквартально',
                 'year': 'Ежегодно'
             }
-            message += f"\n*🔄 Повторение:* {intervals[task['repeat_interval']]}\n"  # Исправлено здесь
+            message += f"\n*🔄 Повторение:* {intervals[task['repeat_interval']]}\n"
             if task.get('repeat_count'):
                 message += f"*🔢 Количество повторений:* {task['repeat_count']}\n"
             if task.get('repeat_until'):
