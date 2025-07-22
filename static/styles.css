@@ -70,3 +70,51 @@ body {
         background-color: #e5e7eb;
         cursor: pointer;
     }
+
+select[multiple] {
+    height: auto;
+    min-height: 100px;
+}
+
+    select[multiple] option {
+        padding: 8px;
+        border-bottom: 1px solid #eee;
+    }
+
+        select[multiple] option:checked {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+/* Добавьте в секцию стилей */
+#editContactsSearch {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 5px;
+}
+
+#editTaskContacts {
+    min-height: 100px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+    #editTaskContacts option {
+        padding: 8px;
+        border-bottom: 1px solid #eee;
+    }
+
+        #editTaskContacts option:hover {
+            background-color: #f5f5f5;
+        }
+
+        #editTaskContacts option:checked {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+.task-item {
+    display: block !important;
+}
