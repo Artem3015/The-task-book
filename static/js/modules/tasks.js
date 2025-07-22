@@ -6,6 +6,11 @@ import { updateTaskFilesList } from './files.js';
 let users = [];
 let showArchive = false;
 
+setInterval(async () => {
+    await fetchTasks();
+    await renderTasks();
+}, 5000); 
+
 export async function initializeTasks() {
     console.log('Инициализация задач:', {
         currentCategory: window.currentCategory,

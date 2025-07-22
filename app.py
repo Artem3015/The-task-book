@@ -85,6 +85,8 @@ def redirect_script_js():
 
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
+    tasks = load_data(TASKS_FILE, [])
+    archived_tasks = load_data(ARCHIVED_TASKS_FILE, [])
     print('Все задачи:', tasks)  # Отладка: вывод всех задач
     print('Задачи без даты:', [t for t in tasks if not t.get('datetime')])  # Отладка
     print('Архивные задачи:', archived_tasks)  # Отладка
