@@ -26,6 +26,161 @@ class TelegramService:
             with open(self.requests_history_file, 'w', encoding='utf-8') as f:
                 json.dump([], f)
 
+        # Инициализация клавиатуры
+        self.reply_keyboard = None
+
+    def _show_main_menu(self, chat_id):
+        """Показывает главное меню без кнопок"""
+        self.send_message(
+            chat_id,
+            "Выберите действие:",
+        )
+
+    def handle_updates(self):
+        if self.is_running:
+            print("handle_updates уже запущен, пропускаем")
+            return
+        self.is_running = True
+        print("Starting update handling")
+        last_update_id = None
+        while self.is_running:
+            try:
+                url = f'{self.base_url}/getUpdates'
+                params = {'offset': last_update_id, 'timeout': 30}
+                response = requests.get(url, params=params, timeout=40)
+                if response.status_code != 200:
+                    print(f"Ошибка Telegram API: {response.status_code} - {response.text}")
+                    if response.status_code == 409:
+                        print("Конфликт getUpdates, пытаемся очистить очередь")
+                        last_update_id = None
+                        time.sleep(5)
+                        continue
+                    continue
+                updates = response.json().get('result', [])
+                
+                for update in updates:
+                    last_update_id = update['update_id'] + 1
+                    if 'message' in update and 'text' in update['message']:
+                        chat_id = update['message']['chat']['id']
+                        text = update['message']['text']
+                        username = update['message']['chat'].get('username', '')
+                        name = update['message']['chat'].get('first_name', '') + ' ' + update['message']['chat'].get('last_name', '')
+                        name = name.strip() or username or str(chat_id)
+                        
+                        self._log_request(chat_id, text, username, name)
+                        
+                        # Обработка команд и кнопок
+                        if text == '/start':
+                            welcome_msg = "👋 Добро пожаловать в Task Manager Bot!\n\n" \
+                                        "Я помогу вам управлять вашими задачами и напоминаниями.\n" \
+                                        "Используйте кнопки ниже или команды для работы."
+                            self.send_message(chat_id, welcome_msg)
+                        elif text == '/getid' or text.lower() == '🆔 мой id (/getid)':
+                            self.send_message(chat_id, f"Ваш Telegram ID: `{chat_id}`")
+                        elif text.startswith('/setname') or text.lower().startswith('👤 установить имя (/setname)'):
+                            name = text[9:].strip() if text.startswith('/setname') else text[25:].strip()
+                            if not name:
+                                self.send_message(chat_id, "Пожалуйста, укажите имя после команды, например:\n/setname Иван\nили нажмите кнопку 'Установить имя' и введите имя")
+                            else:
+                                self._log_request(chat_id, text, username, name)
+                                self.send_message(chat_id, f"Имя '{name}' успешно установлено!")
+                        elif text.lower() == '/mytasks' or text.lower() == '📋 мои задачи (/mytasks)':
+                            tasks = self.get_user_tasks_for_week(chat_id)
+                            if not tasks:
+                                self.send_message(chat_id, "У вас нет задач на ближайшую неделю.")
+                            else:
+                                message = "*Ваши задачи на ближайшую неделю:*\n\n"
+                                for i, task in enumerate(tasks, 1):
+                                    message += f"{i}. {self._format_task_message(task)}\n"
+                                self.send_message(chat_id, message)
+                        elif text.lower() == '/new_task' or text.lower() == '➕ новая задача (/new_task)':
+                            example_date = datetime.now().strftime('%d.%m.%Y %H:%M')
+                            help_text = f"""📝 *Создание новой задачи*
+
+Отправьте сообщение в формате:
+"Название задачи" "Дата и время"
+
+🔹 *Обязательно используйте кавычки*
+🔹 *Формат даты*: ДД.ММ.ГГГГ ЧЧ:ММ
+
+Пример для текущего момента:
+"Моя задача" "{example_date}"
+"""
+                            self.send_message(chat_id, help_text)
+                        else:
+                            # Обработка создания новой задачи
+                            if self._is_task_creation_message(text):
+                                task_data = self._parse_task_creation(text)
+                                if task_data:
+                                    self._create_task(chat_id, task_data)
+                                    self.send_message(chat_id, f"✅ Задача создана:\n\n*{task_data['text']}*\nНа *{task_data['datetime']}*")
+                                else:
+                                    self.send_message(chat_id, "❌ Неверный формат задачи. Пожалуйста, используйте формат:\n\"Название задачи\" \"ДД.ММ.ГГГГ ЧЧ:ММ\"")
+                            else:
+                                self._show_main_menu(chat_id)
+            
+            except requests.exceptions.RequestException as e:
+                print(f"Ошибка при обработке обновлений: {e}")
+            time.sleep(5)
+
+    def _is_task_creation_message(self, text):
+        """Проверяет, является ли сообщение попыткой создания задачи"""
+        return text.count('"') >= 2
+
+    def _parse_task_creation(self, text):
+        """Парсит сообщение с созданием задачи"""
+        try:
+            parts = [p.strip('"') for p in text.split('"') if p.strip()]
+            if len(parts) >= 2:
+                task_text = parts[0]
+                datetime_str = parts[1]
+                
+                # Пытаемся распарсить дату для проверки формата
+                datetime_obj = datetime.strptime(datetime_str, '%d.%m.%Y %H:%M')
+                
+                return {
+                    'text': task_text,
+                    'datetime': datetime_obj.isoformat(),
+                    'chat_id': None,  # Будет установлено при сохранении
+                    'created_at': datetime.now().isoformat()
+                }
+        except ValueError:
+            return None
+        return None
+
+    def _create_task(self, chat_id, task_data):
+        """Создает новую задачу и сохраняет в файл"""
+        try:
+            # Загружаем существующие задачи
+            tasks = []
+            if os.path.exists(self.tasks_file):
+                with open(self.tasks_file, 'r', encoding='utf-8') as f:
+                    tasks = json.load(f)
+            
+            # Генерируем ID для новой задачи
+            new_id = max([t.get('id', 0) for t in tasks] or [0]) + 1
+            
+            # Создаем новую задачу
+            new_task = {
+                'id': new_id,
+                'text': task_data['text'],
+                'datetime': task_data['datetime'],
+                'chat_id': chat_id,
+                'created_at': task_data['created_at'],
+                'completed': False
+            }
+            
+            tasks.append(new_task)
+            
+            # Сохраняем обратно в файл
+            with open(self.tasks_file, 'w', encoding='utf-8') as f:
+                json.dump(tasks, f, indent=2, ensure_ascii=False)
+            
+            return True
+        except Exception as e:
+            print(f"Ошибка при создании задачи: {e}")
+            return False
+
     def get_user_tasks_for_week(self, chat_id):
         """Получает задачи пользователя на ближайшие 7 дней."""
         try:
@@ -257,7 +412,7 @@ class TelegramService:
                         continue
                     continue
                 updates = response.json().get('result', [])
-                
+            
                 for update in updates:
                     last_update_id = update['update_id'] + 1
                     if 'message' in update and 'text' in update['message']:
@@ -266,19 +421,31 @@ class TelegramService:
                         username = update['message']['chat'].get('username', '')
                         name = update['message']['chat'].get('first_name', '') + ' ' + update['message']['chat'].get('last_name', '')
                         name = name.strip() or username or str(chat_id)
-                        
+                    
                         self._log_request(chat_id, text, username, name)
-                        
-                        if text == '/getid':
-                            self.send_message(chat_id, f"Ваш Telegram ID: {chat_id}")
-                        elif text.startswith('/setname'):
-                            name = text[9:].strip()
+                    
+                        # Обработка команды /start
+                        if text == '/start':
+                            welcome_msg = "👋 Добро пожаловать в Task Manager Bot!\n\n" \
+                                        "Я помогу вам управлять вашими задачами и напоминаниями.\n" \
+                                        "Используйте кнопки ниже или команды для работы."
+                            self.send_message(chat_id, welcome_msg)
+                    
+                        # Обработка команды /getid
+                        elif text == '/getid' or text.lower() == '🆔 мой id (/getid)':
+                            self.send_message(chat_id, f"Ваш Telegram ID: `{chat_id}`")
+                    
+                        # Обработка команды /setname
+                        elif text.startswith('/setname') or text.lower().startswith('👤 установить имя (/setname)'):
+                            name = text[9:].strip() if text.startswith('/setname') else text[25:].strip()
                             if not name:
-                                self.send_message(chat_id, "Пожалуйста, укажите имя после команды /setname, например: /setname Иван")
+                                self.send_message(chat_id, "Пожалуйста, укажите имя после команды, например:\n/setname Иван\nили нажмите кнопку 'Установить имя' и введите имя")
                             else:
                                 self._log_request(chat_id, text, username, name)
-                                self.send_message(chat_id, f"Имя '{name}' успешно установлено! Попросите администратора добавить вас в контакты по вашему username.")
-                        elif text.lower() == '/mytasks':
+                                self.send_message(chat_id, f"Имя '{name}' успешно установлено!")
+                    
+                        # Обработка команды /mytasks
+                        elif text.lower() == '/mytasks' or text.lower() == '📋 мои задачи (/mytasks)':
                             tasks = self.get_user_tasks_for_week(chat_id)
                             if not tasks:
                                 self.send_message(chat_id, "У вас нет задач на ближайшую неделю.")
@@ -287,7 +454,54 @@ class TelegramService:
                                 for i, task in enumerate(tasks, 1):
                                     message += f"{i}. {self._format_task_message(task)}\n"
                                 self.send_message(chat_id, message)
-            
+                    
+                        # Обработка команды /new_task
+                        elif text.lower() == '/new_task' or text.lower() == '➕ новая задача (/new_task)':
+                            example_date = datetime.now().strftime('%d.%m.%Y %H:%M')
+                            help_text = f"""📝 *Создание новой задачи*
+
+Отправьте сообщение в формате:
+"Название задачи" "Дата и время"
+
+🔹 *Обязательно используйте кавычки*
+🔹 *Формат даты*: ДД.ММ.ГГГГ ЧЧ:ММ
+
+Пример для текущего момента:
+"Моя задача" "{example_date}"
+"""
+                            self.send_message(chat_id, help_text)
+                    
+                        # Обработка команды /help
+                        elif text.lower() == '/help':
+                            help_text = """🤖 *Меню бота*:
+
+📝 /new_task - Создать новую задачу
+📋 /mytasks - Показать задачи на неделю
+👤 /setname - Установить ваше имя
+🆔 /getid - Показать ваш Telegram ID
+❓ /help - Показать это сообщение
+
+📌 *Формат создания задачи*:
+"Название" "Дата время"
+Пример: "Встреча" "25.07.2023 15:30"
+"""
+                            self.send_message(chat_id, help_text)
+                    
+                        # Обработка создания задачи
+                        elif self._is_task_creation_message(text):
+                            task_data = self._parse_task_creation(text)
+                            if task_data:
+                                if self._create_task(chat_id, task_data):
+                                    self.send_message(chat_id, f"✅ Задача создана:\n\n*{task_data['text']}*\nНа *{datetime.fromisoformat(task_data['datetime']).strftime('%d.%m.%Y %H:%M')}*")                
+                                else:
+                                    self.send_message(chat_id, "❌ Ошибка при создании задачи")
+                            else:
+                                self.send_message(chat_id, "❌ Неверный формат задачи. Пожалуйста, используйте формат:\n\"Название задачи\" \"ДД.ММ.ГГГГ ЧЧ:ММ\"")
+                    
+                        # Обработка неизвестных команд
+                        else:
+                            self._show_main_menu(chat_id)
+        
             except requests.exceptions.RequestException as e:
                 print(f"Ошибка при обработке обновлений: {e}")
             time.sleep(5)
